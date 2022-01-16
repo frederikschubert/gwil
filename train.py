@@ -8,6 +8,7 @@ from coax.value_losses import mse
 from omegaconf import DictConfig, OmegaConf
 from optax import adam
 from ott.core import gromov_wasserstein as gw
+from ott.core import sinkhorn
 from ott.geometry import pointcloud
 
 
@@ -41,7 +42,7 @@ def train(cfg: DictConfig):
         s = s_next
         if done:
             break
-    # coax.utils.generate_gif(env=env, policy=expert_policy, filepath=f"expert.gif")
+    coax.utils.generate_gif(env=env, policy=expert_policy, filepath=f"expert.gif")
     env.close()
     expert_trajectory = jnp.stack(expert_trajectory)
     print(expert_trajectory.shape)
@@ -53,6 +54,8 @@ def train(cfg: DictConfig):
         """type-2 q-function: s -> q(s,.)"""
         seq = hk.Sequential(
             (
+                hk.Linear(128),
+                jax.nn.relu,
                 hk.Linear(128),
                 jax.nn.relu,
                 hk.Linear(128),
@@ -104,19 +107,33 @@ def train(cfg: DictConfig):
                 agent_trajectory = jnp.stack(
                     [jnp.concatenate([s, jnp.array([a])]) for s, a, *_ in trajectory]
                 )
-                geom_x = pointcloud.PointCloud(x=agent_trajectory)
-                geom_y = pointcloud.PointCloud(x=expert_trajectory)
-                out = gw.gromov_wasserstein(
-                    geom_x=geom_x,
-                    geom_y=geom_y,
-                    epsilon=1.0,
-                    jit=True,
-                )
+                if cfg.gromov_wasserstein:
+                    geom_x = pointcloud.PointCloud(x=agent_trajectory)
+                    geom_y = pointcloud.PointCloud(x=expert_trajectory)
+                    out = gw.gromov_wasserstein(
+                        geom_x=geom_x,
+                        geom_y=geom_y,
+                        epsilon=1.0,
+                        jit=True,
+                    )
+                    transport, cost_matrix = out.transport, out.cost_matrix
+                    cost = out.reg_gw_cost
+                else:
+                    geom = pointcloud.PointCloud(
+                        x=agent_trajectory, y=expert_trajectory
+                    )
+                    out = sinkhorn.sinkhorn(
+                        geom,
+                        jit=True,
+                    )
+                    transport = geom.transport_from_potentials(out.f, out.g)
+                    cost_matrix = geom.cost_matrix
+                    cost = out.reg_ot_cost
                 # compute rewards
-                proxy_reward = -jnp.sum(out.transport * out.cost_matrix, axis=-1)
+                proxy_reward = -jnp.sum(transport * cost_matrix, axis=-1)
                 env.record_metrics(
                     {
-                        "gwil/gw_cost": out.reg_gw_cost,
+                        "gwil/cost": cost,
                         "gwil/proxy_reward": jnp.mean(proxy_reward),
                     }
                 )

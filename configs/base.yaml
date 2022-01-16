@@ -6,6 +6,7 @@ seed: 0
 
 num_steps: 100000
 env: CartPole-v0
+gromov_wasserstein: false
 
 hydra:
   run:
