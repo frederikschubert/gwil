@@ -11,3 +11,4 @@ the expert's policy up to an isometry (rotation, translation, reflection).
 
 - Added the GW calculation to a DQN agent on `CartPole-v0` and try to immitate a static expert policy.
     - First experiments reach an average return of 50 after 7500 steps. 
+- Added the plain sinkhorn calculation and got better results immediately.
