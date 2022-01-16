@@ -1,0 +1,11 @@
+name: gwil
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - coax
+    - jax[cpu]
+    - ott-jax
+    - hydra-core
