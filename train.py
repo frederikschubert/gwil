@@ -53,9 +53,9 @@ def train(cfg: DictConfig):
         """type-2 q-function: s -> q(s,.)"""
         seq = hk.Sequential(
             (
-                hk.Linear(64),
+                hk.Linear(128),
                 jax.nn.relu,
-                hk.Linear(64),
+                hk.Linear(128),
                 jax.nn.relu,
                 hk.Linear(env.action_space.n, w_init=jnp.zeros),
             )
